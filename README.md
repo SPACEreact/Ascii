@@ -1,49 +1,54 @@
-# ASCII Studio · Depth & Light
+# ASCII Studio · Solid Type
 
 Live: https://spacereact.github.io/Ascii/
 
-A self-contained browser image/video ASCII editor. Classic rendering and motion tools remain available alongside a new depth playground. No build step is needed. Uploaded media stays on your device.
+A self-contained browser image/video ASCII editor with brushes, procedural motion, audio response, and optional solid 3D characters. The depth-map and scene-lighting options have been removed. Media stays on your device; no model downloads or build step are needed.
 
-## Depth workflow
+## Studio layout
 
-1. Import a photo or select a generated demo.
-2. Choose **3D ASCII glyphs** or **Parallax photo** in Scene view. Quick relief creates a smooth heuristic foreground relief; it is not AI geometry.
-3. Choose **AI depth** for local Depth Anything V2 Small inference, or import an aligned grayscale depth image. Bright pixels are near; Invert depth reverses this convention.
-4. Drag the camera, adjust yaw/pitch/zoom, or animate a subtle orbit. Raise depth / Lower depth sculpt the surface; Smooth depth smooths the base map. Save depth exports the edited, inverted map as a PNG.
-5. Switch to Depth map to inspect the geometry. Camera, lighting, normalized depth and brush fields are included in undo/redo and saved projects.
+One canvas, one brush bar, and one inspector organized into Source, Type, Motion, Look, Audio, 3D, and Export. Desktop uses a scrolling inspector; smaller screens stack the controls below the canvas. Tone and advanced artwork rotation use disclosures. Undo/redo, reset, saved projects and exports remain available.
 
-The renderer projects a single depth surface or camera-facing glyph cards positioned in 3D, using Canvas with depth sorting. This is 2.5D, not full object reconstruction or Gaussian splatting. Keep camera movements small: unseen surfaces are not generated, occlusion handling is approximate, and strong depth changes can fold the textured mesh. Glyphs remain camera-facing rather than extruded meshes.
+## Solid 3D
 
-AI depth is optional. It loads pinned Transformers.js 3.8.1 from jsDelivr and the quantized `onnx-community/depth-anything-v2-small` model from Hugging Face, running ONNX/WASM in a module worker. The first download is substantial, inference speed varies, and browser/network support is required. Cancellation terminates the worker; stale results cannot overwrite a changed source, composition, undone edit, or depth stroke. Video/camera depth describes one captured frame; it is not tracked over time. Quick relief, imported maps and manual brushes work without this model.
+Select **3D** above the canvas. Each character's raster silhouette becomes a closed extruded pixel mesh with front, back, outer walls and hole walls. Adjust character thickness and rotate the glyphs around X, Y and Z. Animate rotation on one or all axes, with adjustable speed.
 
-## Light lab
+Rotate the whole artwork independently using its XYZ controls or the **Rotate artwork** tool. Drag to tilt/turn; Shift+drag rolls. Reset rotation returns a front view. Brushes still edit the artwork, with inverse projected coordinates in 3D.
 
-Depth-derived normals drive a movable sun, ambient illumination, day/night tint, source-colour or clay material, and depth fog. Paint light creates up to eight approximate local emitters, with adjustable colour and intensity. Day, Golden hour and Night presets provide starting points.
+WebGL 2 renders repeated glyph meshes using instancing, depth testing and shared buffers. Browsers without WebGL 2 use geometry-rendered software glyph sprites, with approximate inter-character occlusion and quantized brush rotation/aspect. Software rendering is slower, especially with animated rotation and high character counts. The glyph shape is pixel-based rather than a smooth font outline. Fixed face shading makes volume readable; there is no scene-lighting editor.
 
-Lighting is an approximation on the estimated surface. Original shadows and illumination are baked into the source photo; the app does not regenerate materials, remove shadows, cast accurate new shadows, identify objects, or synthesize hidden scenery. Transparent photo mode preserves source alpha and skips lighting overlays. Classic ASCII retains its original flat rendering.
+## Faster rendering
 
-## Motion and paint
+- Cache static source sampling, foreground analysis, tonal/character grids and glyph tiles.
+- Cache sampled brush fields until brush edits or grid dimensions change.
+- Generate static demos once; procedural movement happens in the renderer.
+- Reuse GPU geometry and instance buffers by character.
+- Avoid redraws when the canvas is idle; redraw on settings, media, mask, resize or animation changes.
+- Preview resolution automatically fits the screen, with Fast/Balanced/Sharp/Full HD overrides and 20/30/60 fps controls. A canvas-side FHD toggle switches between Full HD and automatic preview.
 
-- Glow pulse, rotating disc, heat rise, tree sway, falling petals, liquid wave, individual drift, and scatter/return
-- Source-guided suggestions based on colour and foreground contrast, with painted masks for exact selection
-- Smear, directional stretch, pixelate, paint motion, pin/freeze, pivot, and erase brushes
-- Generated disc, tree/petals, flame, and flow-field demos
-- Motion on glyph scenes and the photo surface; stylized petal/ember particles
+Preview quality changes canvas resolution, not character density. PNG uses the selected export width. Real-time recording has separate 720p / 1080p resolution controls and a dedicated native MP4 button, with browser-supported codecs up to 30fps. Actual frame rate depends on device and effects.
 
-Suggestions are visual heuristics, not semantic AI recognition. Motion is procedural deformation rather than generative image-to-video synthesis.
+## MP4 and Full HD
 
-## Rendering, media and export
+Select **FHD** above the canvas or **Full HD** in Preview performance. A 16:9 canvas renders at 1920×1080, and a 9:16 canvas at 1080×1920. Other aspect ratios retain their proportions. Preview quality is independent of export resolution.
 
-Six ASCII modes, eight tonal presets, custom ramps, font brightness calibration, density/tone controls, source/mono/gradient colour, glow/glitch/rain/scanlines/trails, image/video/camera sources, audio frequency modulation, and compare remain available.
+In Export, choose the video resolution and duration, then **Export MP4**. This makes a real native MP4 recording; it does not rename a WebM file. The app prefers a supported H.264/AAC MP4 configuration, then a native MP4 configuration. Codec availability depends on the browser; unsupported browsers get an explicit message and can use Record video for a supported alternative. MP4 recording is real-time, not an offline frame-by-frame encoder.
 
-PNG and real-time recording capture the active scene. Text and coloured HTML export the static sampled character grid. Project JSON includes settings, depth and brush fields, but media must be reattached. Device-local V3 autosave reads older V2/V1 settings.
+## Customization retained
 
-Recording uses browser-supported WebM or MP4 at 1280px and up to 30fps, with selected audio. Keep the tab visible; slower devices may drop frames. Camera requires HTTPS or localhost. No offline video encoder, BPM estimation, semantic segmentation, or generative relighting service is included.
+Six rendering modes, eight tonal presets, custom ramps, glyph font and brightness calibration, density and glyph scale, brightness/contrast/gamma, contours, dithering, source/mono/gradient colour, glow/glitch/rain/scanlines/trails and bypass remain available.
+
+Motion recipes include pulse, rotating disc, fire rise, sway, falling petals, wave, drift and scatter/return. Motion suggestions use colour and foreground contrast, not semantic recognition. Smear, Stretch, Pixelate, Paint motion, Pin, Erase and Pivot remain available, with undo/redo. Particles, masks, pivot, amount, speed and loop controls are retained.
+
+Images, video, camera, uploaded music, video audio, frequency-band modulation, contain/cover, mirror, aspect controls and source compare remain available. Camera requires HTTPS or localhost.
+
+PNG and recording capture the active 2D/3D scene. Text/coloured HTML export the flat character grid. Saved projects include settings and brush fields; reattach media after loading. V4 autosave migrates V3/V2/V1 customization and ignores removed depth/lighting fields.
 
 ## Validation
 
-A real Canvas implementation with a DOM harness verified existing motion recipes, brush fields, pointer strokes, undo/redo, project startup/round-trip and exports. V3 checks covered depth-dependent projection, camera dragging, textured photo rendering, day/night changes, painted lights, raise/lower depth, projected brush selection, inference-result wiring and stale-job cancellation. Rendered images were inspected. CDN/module and model metadata endpoints were checked; full browser layout, actual AI model inference, camera access and native video recording were not exercised in this environment.
+Real Canvas checks verified all motion recipes, retained brushes, pointer strokes, undo/redo, project reloads, exports, closed extruded geometry, XYZ/inverse projection, rotation animation, cache reuse and brush invalidation. Software 3D frames were rendered and inspected.
+
+A local repeated-frame benchmark at 1280px measured approximately 49 ms median for V2 versus 19 ms for V4. This is one native Canvas test case, not a guarantee for every device or effect combination. Live Chrome verification confirmed the organized inspector, software 3D rendering, character rotation, idle redraw behavior, a 1920×1080 preview canvas, and a downloaded one-second Full HD MP4. This browser disabled WebGL 2, so the GPU path could not be visually exercised there. Native mobile layout and recording with an audio track were not exercised in this pass.
 
 ## Local use
 
-Open `index.html`, or run `python3 -m http.server 8000` and visit http://localhost:8000. HTTPS/localhost is recommended for optional browser features. GitHub Pages deploys the single HTML file on every push to `main`.
+Open `index.html`, or run `python3 -m http.server 8000` and visit http://localhost:8000. GitHub Pages deploys the single HTML file on pushes to `main`.
