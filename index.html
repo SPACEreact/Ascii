@@ -199,4 +199,19 @@ async function exportFrameMP4(){
 $('mp4').onclick=exportFrameMP4;const stopLive=$('stop').onclick;$('stop').onclick=()=>{if(offlineExport)cancelExport=true;else stopLive()};
 $('mp4Info').textContent=window.VideoEncoder?'Frame-by-frame MP4 for images. Live recording fallback for video, camera, or unsupported AVC encoders.':'Native MP4 recording depends on browser codec support. Record video can save WebM.';
 
-</script><script src="./studio-upgrade.js"></script><script src="./split-view.js"></script></body></html>
+
+// Mobile navigation: later-added tabs must open their panels AND reveal the
+// selected controls within the visible viewport, not below the artboard.
+document.querySelector('.tabs').addEventListener('click',event=>{
+  const button=event.target.closest('[data-tab]');
+  if(!button)return;
+  showPanel(button.dataset.tab);
+  if(window.innerWidth>760)return;
+  requestAnimationFrame(()=>{
+    const panel=document.getElementById('panel-'+button.dataset.tab);
+    if(!panel || panel.hidden)return;
+    const target=window.scrollY+panel.getBoundingClientRect().top-132;
+    window.scrollTo({top:Math.max(0,target),behavior:'auto'});
+  });
+});
+</script><script src="./studio-upgrade.js?v=mobilefix2"></script><script src="./split-view.js?v=mobilefix2"></script></body></html>
