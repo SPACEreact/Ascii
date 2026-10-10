@@ -213,6 +213,10 @@
     return result;
   }
 
+  // Rebuilding caches on any restored project, preset, undo or redo keeps the new grading correct.
+  const nativeRestore = restore;
+  restore = function(s) { nativeRestore(s); invalidate(); updateCurveGraph(); };
+
   const nativeSamplePicture = samplePicture;
   samplePicture = function(cols,rows) {
     const raw = nativeSamplePicture(cols,rows);
