@@ -45,7 +45,7 @@ const server=http.createServer((req,res)=>{
       if(state.panelHidden||!state.tabSelected||!state.panelRect?.height)throw Error(label+' split tab did not open');
       await page.locator('#splitEnabled').check();
       await page.locator('#splitStyle').selectOption('retro');
-      await page.locator('#splitPosition').fill('0.38');
+      await page.locator('#splitPosition').evaluate(el=>{el.value='0.38';el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))});
       await page.waitForTimeout(350);
       console.log(label,'AFTER_ENABLE',JSON.stringify(await page.evaluate(()=>({
         enabled:document.querySelector('#splitEnabled').checked,
