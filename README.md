@@ -17,7 +17,7 @@ A self-contained browser studio for image ASCII, character choreography, and lig
 
 Scene → Map → ASCII drone scene. Enter latitude/longitude and choose 250 m, 500 m, or 1 km. Open centre in OpenStreetMap helps inspect the location. Generate makes one bounded Overpass request for building ways and roads, then closes the network workload and renders local geometry. No API key, satellite download, or constantly rendering map underneath the editor.
 
-- Actual OSM building footprints and roads; flat terrain. Building height uses `height`, then `building:levels × 3`, else an explicitly reported estimate.
+- Actual OSM building footprints and roads; flat terrain. Building height uses `height`, then `building:levels × 3`, else an explicitly reported estimate. Display heights are capped at 50 scene units for camera framing (125 m at the 250 m area setting).
 - Limits: 220 buildings, 120 road segments, at most 24 sampled vertices per imported way. Dense areas are simplified and may omit features. Relations, roof shapes, interiors, elevation and photogrammetry are not reconstructed.
 - Public service availability varies. A 35-second timeout and Cancel preserve the previous scene on error. Wait at least 15 seconds between requests. Procedural demos work without internet.
 - Map data © OpenStreetMap contributors, ODbL: https://www.openstreetmap.org/copyright . Attribution is visible in preview/PNG/MP4 and stored in JSON projects. Map-derived databases retain ODbL obligations.
