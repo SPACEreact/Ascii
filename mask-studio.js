@@ -41,6 +41,10 @@ controls.innerHTML=`
   <label class="check" id="maskInvertRow" hidden>
     <input id="maskInvert" type="checkbox"> Invert selection
   </label>
+  <div id="splitRevealSliders"></div>
+  <label class="check"><input id="splitAnimate" type="checkbox"> Animate ASCII into selection</label>
+  <button type="button" class="mask-wide" id="splitReplay">▶ Replay reveal</button>
+  <p class="note">Starts with the full source image. ASCII sweeps into its selected area and stops at your boundary. Use Play / Pause to control playback.</p>
   <input type="checkbox" id="maskFillAll" hidden>
   <p class="mask-message" id="maskMessage" role="status">Choose a selection to start creating.</p>`;
 const anchor=$m('splitSliders');
@@ -64,6 +68,8 @@ style.textContent=`
 `;
 document.head.appendChild(style);
 const definitions={
+  splitRevealDuration:[3,.5,15,.1,'Reveal duration (seconds)','splitRevealSliders'],
+  splitSelectionFeather:[0,0,80,1,'Selection feather (pixels at 1080p)','splitRevealSliders'],
   maskBrushSize:[20,2,90,1,'Brush diameter (% of image height)','maskBrushSliders'],
   maskBrushSoftness:[.5,0,1,.05,'Brush softness','maskBrushSliders'],
   maskBrushOpacity:[1,.1,1,.05,'Brush opacity','maskBrushSliders'],
@@ -82,7 +88,7 @@ for(const [id,def] of Object.entries(definitions)){
   $m(parent).insertAdjacentHTML('beforeend',
     `<label class="field"><span>${label}<output id="${id}Value">${value}</output></span><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"></label>`);
 }
-const idsNew=[...Object.keys(definitions),'maskMode','maskHybridBase','maskDetect','maskRefine','maskInvert','maskFillAll'];
+const idsNew=[...Object.keys(definitions),'maskMode','maskHybridBase','maskDetect','maskRefine','maskInvert','maskFillAll','splitAnimate'];
 const maskDefaults={};
 for(const id of idsNew){
   ids.push(id);const control=$m(id);
@@ -109,6 +115,9 @@ const layer=document.createElement('canvas'),layerCtx=layer.getContext('2d');
 const pixels=document.createElement('canvas'),pixelsCtx=pixels.getContext('2d',{willReadFrequently:true});
 const cached=document.createElement('canvas'),cachedCtx=cached.getContext('2d');
 const dest=output.getContext('2d');
+const revealMask=document.createElement('canvas'),revealCtx=revealMask.getContext('2d');
+const asciiLayer=document.createElement('canvas'),asciiCtx=asciiLayer.getContext('2d');
+const softMask=document.createElement('canvas'),softCtx=softMask.getContext('2d');
 let sourceCacheKey='',pixelCacheKey='',renderedSourceKey='';
 const cursor=document.createElement('div');cursor.className='mask-cursor';stage.appendChild(cursor);
 function mode(){return $m('maskMode').value}
@@ -239,17 +248,29 @@ function contrastMask(w,h,s){
     bc.drawImage(mask,0,0);ctx.clearRect(0,0,w,h);ctx.drawImage(blurred,0,0);
   }
 }
+function lineMask(w,h,s){
+  const image=ctx.createImageData(w,h);
+  const feather=Math.max(.000001,+s.splitFeather*w/output.width);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=(y*w+x)*4;
+    let a=between(+s.splitPosition*w-feather,+s.splitPosition*w+feather,x+.5);
+    if(s.splitReverse)a=1-a;
+    image.data[i]=image.data[i+1]=image.data[i+2]=255;image.data[i+3]=Math.round(a*255);
+  }
+  ctx.putImageData(image,0,0);
+}
 function buildMask(){
   const s=settings(),[w,h]=sizeMask();
   const frameKey=type==='video'?Math.floor(video.currentTime*5):type==='camera'?Math.floor(performance.now()/200):0;
   const relevant=[w,h,mode(),s.maskHybridBase,s.maskSeed,s.maskRoughness,s.maskFrequency,s.maskJitter,
     s.maskThreshold,s.maskSensitivity,s.maskExpand,s.maskSoftEdge,s.maskDetect,s.splitPosition,
-    s.maskInvert,s.maskFillAll,s.fit,s.flip,s.ratio,sourceRevision,type,$m('demoScene').value,
+    s.maskInvert,s.maskFillAll,s.splitReverse,s.splitFeather,s.fit,s.flip,s.ratio,sourceRevision,type,$m('demoScene').value,
     frameKey,strokes.length,activeStroke?.points.length||0].join('|');
   if(!maskDirty&&maskKey===relevant)return;
   maskKey=relevant;maskDirty=false;
   ctx.clearRect(0,0,w,h);
   if(s.maskFillAll)ctx.fillStyle='#fff',ctx.fillRect(0,0,w,h);
+  else if(baselineMode()==='line')lineMask(w,h,s);
   else if(baselineMode()==='organic')organicMask(w,h,s);
   else if(baselineMode()==='contrast')contrastMask(w,h,s);
   for(const stroke of strokes)paintStroke(stroke);
@@ -310,48 +331,56 @@ function pixelsTexture(sourceKey){
     }
   }
 }
-function blendMasked(){
-  const s=settings();
-  buildMask();
-  const sourceKey=sourceTexture();
-  pixelsTexture(sourceKey);
-  // Keep the cached source texture intact; composite a separate masked layer.
-  if(cached.width!==output.width||cached.height!==output.height){
-    cached.width=output.width;cached.height=output.height;
+function blendMasked(t){
+  const s=settings();buildMask();
+  const sourceKey=sourceTexture();pixelsTexture(sourceKey);
+  const w=output.width,h=output.height,mw=mask.width,mh=mask.height;
+  for(const c of [asciiLayer,cached])if(c.width!==w||c.height!==h){c.width=w;c.height=h}
+  for(const c of [revealMask,softMask])if(c.width!==mw||c.height!==mh){c.width=mw;c.height=mh}
+  // The existing selection describes the image region; its complement is ASCII.
+  const data=ctx.getImageData(0,0,mw,mh);
+  const progress=s.splitAnimate?clamp(t/Math.max(.5,+s.splitRevealDuration)):1;
+  const eased=smoother(progress);
+  for(let y=0;y<mh;y++)for(let x=0;x<mw;x++){
+    const i=(y*mw+x)*4;
+    const sweep=progress<=0?0:progress>=1?1:
+      1-between(eased-.025,eased+.025,(s.splitReverse?mw-x-.5:x+.5)/mw);
+    data.data[i+3]=Math.round((255-data.data[i+3])*sweep);
   }
-  cachedCtx.clearRect(0,0,cached.width,cached.height);
-  cachedCtx.drawImage(layer,0,0);
-  cachedCtx.globalCompositeOperation='destination-in';
-  cachedCtx.drawImage(mask,0,0,cached.width,cached.height);
-  cachedCtx.globalCompositeOperation='source-over';
-  dest.drawImage(cached,0,0);
-  // A soft selection doesn't require a visible dividing line. Optional
-  // outline is only drawn for the irregular shape, not for brush strokes.
-  if(s.splitDivider&&baselineMode()==='organic'){
-    const w=output.width,h=output.height;
-    dest.save();dest.strokeStyle='rgba(245,239,202,.65)';
-    dest.lineWidth=Math.max(1,w/1300);
-    dest.beginPath();
+  revealCtx.putImageData(data,0,0);
+  softCtx.clearRect(0,0,mw,mh);softCtx.save();
+  softCtx.filter=+s.splitSelectionFeather>0?'blur('+ (+s.splitSelectionFeather*mh/1080)+'px)':'none';
+  softCtx.drawImage(revealMask,0,0);softCtx.restore();
+  asciiCtx.clearRect(0,0,w,h);asciiCtx.drawImage(output,0,0);
+  asciiCtx.globalCompositeOperation='destination-in';
+  asciiCtx.drawImage(softMask,0,0,w,h);asciiCtx.globalCompositeOperation='source-over';
+  dest.clearRect(0,0,w,h);
+  // Full original source is guaranteed at the first frame, even with pixel styling.
+  dest.drawImage(s.splitAnimate?sourceCanvas:layer,0,0);
+  dest.drawImage(asciiLayer,0,0);
+  if(s.splitDivider&&baselineMode()==='organic'&&(!s.splitAnimate||progress>=1)){
+    dest.save();dest.strokeStyle='rgba(245,239,202,.65)';dest.lineWidth=Math.max(1,w/1300);dest.beginPath();
     for(let y=0;y<=h;y+=Math.max(3,Math.ceil(h/220))){
       const p=y/h,f=+s.maskFrequency,seed=+s.maskSeed;
-      const wave=noise(p,f*.55,seed)*.22+
-        noise(p,f*2,seed+13)*.11*+s.maskJitter+
-        noise(p,f*6,seed+103)*.03*+s.maskJitter;
+      const wave=noise(p,f*.55,seed)*.22+noise(p,f*2,seed+13)*.11*+s.maskJitter+noise(p,f*6,seed+103)*.03*+s.maskJitter;
       const x=(+s.splitPosition+wave*+s.maskRoughness)*w;
       if(y===0)dest.moveTo(x,y);else dest.lineTo(x,y);
     }
     dest.stroke();dest.restore();
   }
+  if(s.splitDivider&&mode()==='line'&&(!s.splitAnimate||progress>=1)){
+    dest.save();dest.fillStyle='#fff0bd';dest.fillRect(+s.splitPosition*w-1,0,Math.max(1,w/800),h);dest.restore();
+  }
 }
 const precedingRender=render;
 render=function(t,width,exporting){
-  const useMask=$m('splitEnabled').checked&&mode()!=='line';
+  const useMask=$m('splitEnabled').checked&&!comparing;
   if(!useMask){precedingRender(t,width,exporting);showEditor();return;}
   $m('splitEnabled').checked=false;
   try{precedingRender(t,width,exporting)}
   finally{$m('splitEnabled').checked=true}
   if((type==='video'||type==='camera')&&video.readyState<2)return;
-  try{blendMasked()}catch(error){$m('maskMessage').textContent='Mask rendering error: '+error.message}
+  try{blendMasked(t)}catch(error){$m('maskMessage').textContent='Mask rendering error: '+error.message}
   showEditor();
 };
 // Save strokes inside the existing project and undo history schema.
@@ -372,6 +401,14 @@ restore=function(state){
     })):[];maskDirty=true;sourceCacheKey='';pixelCacheKey='';
   showEditor();dirty=true;
 };
+$m('splitReplay').onclick=()=>{
+  if(recording)return;
+  $m('splitEnabled').checked=true;$m('splitAnimate').checked=true;
+  frame=0;previous=null;running=true;comparing=false;syncPlay();changed();
+};
+$m('splitAnimate').addEventListener('change',()=>{
+  if($m('splitAnimate').checked){frame=0;running=true;syncPlay()}
+});
 function changed(){maskDirty=true;dirty=true;updateUI();showEditor()}
 for(const id of idsNew){
   const control=$m(id);
