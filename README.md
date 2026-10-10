@@ -33,3 +33,11 @@ PNG supports transparency and widths up to 2560 px. Supporting HTTPS browsers re
 ## Validation
 
 Real Canvas regression checks cover image rendering, all eight transitions, animated character motion, palette history, transparent output, Full HD dimensions, embedded projects and legacy-state removal. Static before/after frames are compared directly. The MP4 writer is checked with actual AVC packets, FFprobe timing/frame counts and a full FFmpeg decode. Live browser checks verify the published controls and output dimensions.
+
+## Pixel Darkroom: photo and CRT controls
+
+The **Adjust** and **CRT** tabs extend the existing app without introducing a build step or new dependencies. Adjust includes exposure, highlights, shadows, temperature, tint, saturation, vibrance, a three-point tonal curve, sharpening and grain. Grading is non-destructive and applies to both image keyframes before ASCII conversion. Hold **Before** to compare the untreated character render.
+
+CRT effects start **off**: opt into scanlines with adjustable spacing/intensity, an aperture-grille or shadow-dot phosphor mask, bloom, halation, softness, RGB bleed, simulated curved glass and vignette. Each has its own enable switch and intensity slider. **Soft CRT**, **Arcade**, **Pixel Glow**, and **Mono Terminal** provide starting points. CRT draws onto the same output canvas so PNG and supported video export use these effects too. Note that curved glass is a lightweight strip approximation rather than a full optical distortion shader. Both tabs support Undo/Redo, per-group reset and project/device settings.
+
+The darkroom is implemented as `studio-upgrade.js`, loaded after the main app; the existing renderer, transitions, source imports and performance-limited preview remain available. Heavy CRT effects can impact full-HD frame rates, so enable only those needed for the artwork.
