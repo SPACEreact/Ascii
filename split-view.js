@@ -268,6 +268,9 @@
   };
   window.addEventListener('resize',placeHandle);
   if(window.ResizeObserver)new ResizeObserver(placeHandle).observe(out);
+  // This tab is inserted after the initial showPanel() bindings were created.
+  // Wire it explicitly so tapping Split View actually reveals its inspector.
+  tabs.querySelector('[data-tab="split"]').onclick=()=>showPanel('split');
   tabs.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'})));
   try{
     const saved=JSON.parse(localStorage.getItem('ascii-studio-v10'));
