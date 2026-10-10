@@ -54,6 +54,48 @@ const server=http.createServer((req,res)=>{
         handleHidden:document.querySelector('.split-handle').hidden,
         info:document.querySelector('#splitStatus').textContent
       }))));
+
+      // New creative masks: verify all modes, live brush input, and project undo.
+      if(!await page.locator('#maskMode').count())throw Error(label+' creative mask UI missing');
+      await page.locator('#maskMode').selectOption('organic');
+      let maskState=await page.evaluate(()=>({
+        organicVisible:!document.querySelector('#maskOrganicGroup').hidden,
+        mode:document.querySelector('#maskMode').value,
+        canvas:document.querySelector('#out').width
+      }));
+      if(!maskState.organicVisible||maskState.mode!=='organic')throw Error(label+' organic mask controls missing');
+      await page.locator('#maskReroll').click();
+      await page.locator('#maskMode').selectOption('contrast');
+      maskState=await page.evaluate(()=>({
+        contrastVisible:!document.querySelector('#maskContrastGroup').hidden,
+        mode:document.querySelector('#maskMode').value
+      }));
+      if(!maskState.contrastVisible)throw Error(label+' contrast mask controls missing');
+      await page.locator('#maskMode').selectOption('hybrid');
+      await page.locator('#maskHybridBase').selectOption('organic');
+      const artwork=page.locator('#out');
+      await artwork.scrollIntoViewIfNeeded();
+      let bounds=await artwork.boundingBox();
+      if(!bounds)throw Error(label+' artwork missing');
+      await page.mouse.move(bounds.x+bounds.width*.3,bounds.y+bounds.height*.4);
+      await page.mouse.down();
+      await page.mouse.move(bounds.x+bounds.width*.5,bounds.y+bounds.height*.53,{steps:7});
+      await page.mouse.up();
+      maskState=await page.evaluate(()=>({
+        mode:document.querySelector('#maskMode').value,
+        strokes:snapshot()._maskStrokes?.length||0,
+        eraser:document.querySelector('#maskErase').classList.contains('mask-current'),
+        panelHidden:document.querySelector('#panel-split').hidden,
+        message:document.querySelector('#maskMessage').textContent
+      }));
+      console.log(label,'MASK_CHECK',JSON.stringify(maskState));
+      if(maskState.strokes!==1||maskState.panelHidden)throw Error(label+' paint stroke not saved');
+      await page.locator('#maskErase').click();
+      if(!await page.locator('#maskErase').evaluate(el=>el.classList.contains('mask-current')))
+        throw Error(label+' eraser not active');
+      await page.locator('#maskClear').click();
+      if(await page.evaluate(()=>snapshot()._maskStrokes?.length))throw Error(label+' brush clear failed');
+
       if(errors.length)throw Error(label+' browser issues:\n'+errors.join('\n'));
       await page.close();
     }
