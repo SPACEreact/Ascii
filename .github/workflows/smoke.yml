@@ -1,0 +1,27 @@
+name: Browser smoke test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test driver
+        run: npm install --no-save playwright-core@1.56.1
+      - name: Verify Chrome available
+        run: which google-chrome && google-chrome --version
+      - name: Run mobile and desktop smoke tests
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node tests/mobile-smoke.cjs
