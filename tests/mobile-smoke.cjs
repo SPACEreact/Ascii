@@ -39,10 +39,11 @@ const server=http.createServer((req,res)=>{
       state=await page.evaluate(()=>({
         panelHidden:document.querySelector('#panel-split')?.hidden,
         tabSelected:document.querySelector('[data-tab="split"]')?.classList.contains('selected'),
-        panelRect:(()=>{let r=document.querySelector('#panel-split')?.getBoundingClientRect();return r&&{x:r.x,y:r.y,width:r.width,height:r.height}})()
+        panelRect:(()=>{let r=document.querySelector('#panel-split')?.getBoundingClientRect();return r&&{x:r.x,y:r.y,width:r.width,height:r.height}})(),viewportHeight:window.innerHeight
       }));
       console.log(label,'AFTER_CLICK',JSON.stringify(state));
       if(state.panelHidden||!state.tabSelected||!state.panelRect?.height)throw Error(label+' split tab did not open');
+      if(label==='mobile' && (state.panelRect.y<0 || state.panelRect.y>state.viewportHeight-140))throw Error('mobile split controls not visible in viewport');
       await page.locator('#splitEnabled').check();
       await page.locator('#splitStyle').selectOption('retro');
       await page.locator('#splitPosition').evaluate(el=>{el.value='0.38';el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))});
