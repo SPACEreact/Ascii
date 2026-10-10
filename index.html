@@ -199,4 +199,4 @@ async function exportFrameMP4(){
 $('mp4').onclick=exportFrameMP4;const stopLive=$('stop').onclick;$('stop').onclick=()=>{if(offlineExport)cancelExport=true;else stopLive()};
 $('mp4Info').textContent=window.VideoEncoder?'Frame-by-frame MP4 for images. Live recording fallback for video, camera, or unsupported AVC encoders.':'Native MP4 recording depends on browser codec support. Record video can save WebM.';
 
-</script><script src="./studio-upgrade.js"></script></body></html>
+</script><script src="./studio-upgrade.js"></script><script src="./split-view.js"></script></body></html>
