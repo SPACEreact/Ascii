@@ -1,54 +1,57 @@
-# ASCII Studio · Solid Type
+# ASCII Studio — Character Choreography
 
 Live: https://spacereact.github.io/Ascii/
 
-A self-contained browser image/video ASCII editor with brushes, procedural motion, audio response, and optional solid 3D characters. The depth-map and scene-lighting options have been removed. Media stays on your device; no model downloads or build step are needed.
+A self-contained local-first ASCII scene editor. Open `index.html` directly or use GitHub Pages. No runtime CDN, uploaded media, or build step. The Pages workflow deploys `index.html`.
 
-## Studio layout
+## What is available
 
-One canvas, one brush bar, and one inspector organized into Source, Type, Motion, Look, Audio, 3D, and Export. Desktop uses a scrolling inspector; smaller screens stack the controls below the canvas. Tone and advanced artwork rotation use disclosures. Undo/redo, reset, saved projects and exports remain available.
+- Image/video/camera conversion with the existing type, colour, tone, motion and export controls.
+- **Sequence:** choose image A and image B. Match sampled non-space glyphs by Morton spatial ordering, resample unequal counts, interpolate colour, and animate the characters between both arrangements. Eight transitions: cinematic travel, soft morph, orbital swirl, full-frame noise/reveal, shatter/assemble, cascading reveal, ribbon flight, colour dissolve. Loop holds and an optional return journey; shared timeline scrubbing. Try demo pair requires no files.
+- **Fields:** up to 12 independently positioned magnets. Click to place, drag the centre, select a field from the list. Attract, repel, vortex, orbit or wind. Target all glyphs, high contrast/edges, highlights, shadows, warm or cool colours; adjust strength, radius and selection threshold. Image-based selectors are heuristics, not object recognition.
+- **Materials:** rigid glyphs; cloth using a 24×15 connected Verlet mesh with distance/diagonal constraints, gravity, wind and top-edge/corner anchors; rubber spring-response styling; liquid flow styling. Cloth is a lightweight 2D deformation simulation, with no collision/self-collision. Material deformations also feed the 3D glyph renderer.
+- **Look:** colour, glow, glitch, trails, scanlines, code rain and four shader-style finishes (spectral echo, holographic shimmer, heat ripple, film grain). These finishes use Canvas compositing/deformation; they are not a GPU postprocessing library.
+- **3D inside Look:** cached, closed extruded glyph meshes, independent XYZ glyph and artwork rotation, optional spin. WebGL2 instancing when available; geometry-rendered software fallback otherwise.
+- **Export:** PNG, native MP4 when browser-supported, WebM fallback, and 1920×1080 landscape / 1080×1920 portrait preview. MP4 remains real-time, silent, up to 30 fps; recording depends on device/browser performance. Video begins at the start of an enabled keyframe sequence. Text/HTML export the source grid, not moving particle positions.
+- **Scene JSON v2:** embeds image keyframes at up to 1280px plus controls/fields. v1 settings remain loadable. Videos/camera need reattachment. Device autosave keeps settings and fields, not image bytes. Undo/redo covers controls and magnets, not media replacement.
+- Audio and brushes have been removed. Existing depth/light editors remain removed.
 
-## Solid 3D
+## Quick workflow
 
-Select **3D** above the canvas. Each character's raster silhouette becomes a closed extruded pixel mesh with front, back, outer walls and hole walls. Adjust character thickness and rotate the glyphs around X, Y and Z. Animate rotation on one or all axes, with adjustable speed.
+1. Sequence → choose A and B, or Try demo pair.
+2. Pick a transition; Show A/B to inspect endpoints, Play sequence or scrub the timeline.
+3. Fields → place magnets, choose an image selector and force. Layer several fields for a composition.
+4. Choose a material. Cloth plays while the timeline runs; Reset simulation starts it again.
+5. Look → open 3D to rotate glyphs; canvas tool → Rotate 3D artwork to drag the scene.
+6. Export → choose duration and resolution → Export MP4. Save project retains image keyframes.
 
-Rotate the whole artwork independently using its XYZ controls or the **Rotate artwork** tool. Drag to tilt/turn; Shift+drag rolls. Reset rotation returns a front view. Brushes still edit the artwork, with inverse projected coordinates in 3D.
+## Technology shortlist for the larger scene composer
 
-WebGL 2 renders repeated glyph meshes using instancing, depth testing and shared buffers. Browsers without WebGL 2 use geometry-rendered software glyph sprites, with approximate inter-character occlusion and quantized brush rotation/aspect. Software rendering is slower, especially with animated rotation and high character counts. The glyph shape is pixel-based rather than a smooth font outline. Fixed face shading makes volume readable; there is no scene-lighting editor.
+Research checked against repository READMEs/licenses on 2026-10-10. The current app uses its own implementation; these are candidates for a future modular engine, not dependencies already integrated.
 
-## Faster rendering
+| Repository | Useful role | License / integration note |
+| --- | --- | --- |
+| [mrdoob/three.js](https://github.com/mrdoob/three.js) | Instanced extruded glyph rendering, WebGL and WebGPU/TSL foundations | MIT. Best core renderer candidate; GPU morph buffers need custom ASCII sampling/matching. |
+| [chrismaldona2/tsl-morphing-particles](https://github.com/chrismaldona2/tsl-morphing-particles) | Small concrete example: 16k particles, GPU position/colour morphs, texture-array targets | No license identified in the inspected repository page. Study architecture; obtain permission or verify a license before copying. It morphs 3D model surfaces, not arbitrary ASCII images directly. |
+| [subprotocol/verlet-js](https://github.com/subprotocol/verlet-js) | Simple particles + distance/angular constraints; browser cloth example | MIT. Suitable CPU fallback reference; mature/simple code, not a modern GPU cloth engine. |
+| [jspdown/cloth](https://github.com/jspdown/cloth) | WebGPU XPBD cloth, compliance, small steps, constraint graph colouring | MIT. Research/prototype reference; README has old experimental-browser instructions, so integration needs compatibility work. |
+| [pmndrs/postprocessing](https://github.com/pmndrs/postprocessing) | Bloom, chromatic aberration, glitch, noise, god rays, LUT grading, shock waves | Zlib (upstream portions MIT). Good Three.js effect stack; import selected effects and manage render-target costs. |
+| [gl-transitions/gl-transitions](https://github.com/gl-transitions/gl-transitions) | GLSL image-transition recipes for reveal/dissolve/warp layers | Check the license of each transition. Texture transitions complement glyph paths; they do not match/travel individual glyphs. |
+| [tsparticles/tsparticles](https://github.com/tsparticles/tsparticles) | Configurable emitters, character particles, masks and effect presets | MIT. Useful secondary effect layers; contrast-selective glyph magnets still require custom image masks/forces. |
+| [daybrush/moveable](https://github.com/daybrush/moveable) | Canvas/DOM layer placement, drag, scale, rotate, group and snap handles | MIT. Strong fit for preset placement handles; does not provide a particle renderer or timeline. |
+| [xyflow/xyflow](https://github.com/xyflow/xyflow) | Optional node editor linking sources, fields, materials and effects | MIT core. Editor UI only; implement execution/rendering yourself. |
+| [theatre-js/theatre](https://github.com/theatre-js/theatre) | Visual keyframes and choreography of arbitrary JS/3D parameters | Core Apache-2.0; Studio AGPL-3.0. Embedding the visual editor needs license review. README says development temporarily moved to a private repo; confirm maintenance before committing. |
 
-- Cache static source sampling, foreground analysis, tonal/character grids and glyph tiles.
-- Cache sampled brush fields until brush edits or grid dimensions change.
-- Generate static demos once; procedural movement happens in the renderer.
-- Reuse GPU geometry and instance buffers by character.
-- Avoid redraws when the canvas is idle; redraw on settings, media, mask, resize or animation changes.
-- Preview resolution automatically fits the screen, with Fast/Balanced/Sharp/Full HD overrides and 20/30/60 fps controls. A canvas-side FHD toggle switches between Full HD and automatic preview.
+## The 100+ preset scene vision
 
-Preview quality changes canvas resolution, not character density. PNG uses the selected export width. Real-time recording has separate 720p / 1080p resolution controls and a dedicated native MP4 button, with browser-supported codecs up to 30fps. Actual frame rate depends on device and effects.
+Not implemented yet: a 100+ preset library, independent artwork layers, arbitrary object placement, per-layer timelines and a node compositor. The new magnets and A/B sequence are the first foundation.
 
-## MP4 and Full HD
+Recommended next architecture: Three.js renderer + custom glyph/field engine, selective Postprocessing effects, Moveable placement handles, and an owned lightweight timeline. Add React Flow only if node composition improves the workflow; do not add every library at once. Keep a CPU/WebGL fallback for browsers without WebGPU.
 
-Select **FHD** above the canvas or **Full HD** in Preview performance. A 16:9 canvas renders at 1920×1080, and a 9:16 canvas at 1080×1920. Other aspect ratios retain their proportions. Preview quality is independent of export resolution.
+Each preset should be serializable data: `id`, `category`, `seed`, `source`, `selector`, `transform`, `force`, `material`, `appearance`, `start`, `duration`, `blendMode`, `parameters`, `performanceTier`. Layers own transforms/timing and reference image assets. A staged evaluation order is source sampling → glyph matching → transition paths → forces → material deformation → glyph rendering → layer effects → compositing. Preserve glyph IDs for stable movement and cache source sampling/matches until relevant inputs change.
 
-In Export, choose the video resolution and duration, then **Export MP4**. This makes a real native MP4 recording; it does not rename a WebM file. The app prefers a supported H.264/AAC MP4 configuration, then a native MP4 configuration. Codec availability depends on the browser; unsupported browsers get an explicit message and can use Record video for a supported alternative. MP4 recording is real-time, not an offline frame-by-frame encoder.
-
-## Customization retained
-
-Six rendering modes, eight tonal presets, custom ramps, glyph font and brightness calibration, density and glyph scale, brightness/contrast/gamma, contours, dithering, source/mono/gradient colour, glow/glitch/rain/scanlines/trails and bypass remain available.
-
-Motion recipes include pulse, rotating disc, fire rise, sway, falling petals, wave, drift and scatter/return. Motion suggestions use colour and foreground contrast, not semantic recognition. Smear, Stretch, Pixelate, Paint motion, Pin, Erase and Pivot remain available, with undo/redo. Particles, masks, pivot, amount, speed and loop controls are retained.
-
-Images, video, camera, uploaded music, video audio, frequency-band modulation, contain/cover, mirror, aspect controls and source compare remain available. Camera requires HTTPS or localhost.
-
-PNG and recording capture the active 2D/3D scene. Text/coloured HTML export the flat character grid. Saved projects include settings and brush fields; reattach media after loading. V4 autosave migrates V3/V2/V1 customization and ignores removed depth/lighting fields.
+Build 100 meaningful recipes across travel/reveal, fields, cloth/rubber/liquid, fire/petals/embers, geometry, colour and finish families, with thumbnails and editable parameters. Shared settings and random seeds are variations; they should not be advertised as distinct motion algorithms. Lazy-load optional effects, budget particle counts per scene, and offer deterministic fixed-step offline encoding later for reliable high-quality exports.
 
 ## Validation
 
-Real Canvas checks verified all motion recipes, retained brushes, pointer strokes, undo/redo, project reloads, exports, closed extruded geometry, XYZ/inverse projection, rotation animation, cache reuse and brush invalidation. Software 3D frames were rendered and inspected.
-
-A local repeated-frame benchmark at 1280px measured approximately 49 ms median for V2 versus 19 ms for V4. This is one native Canvas test case, not a guarantee for every device or effect combination. Live Chrome verification confirmed the organized inspector, software 3D rendering, character rotation, idle redraw behavior, a 1920×1080 preview canvas, and a downloaded one-second Full HD MP4. This browser disabled WebGL 2, so the GPU path could not be visually exercised there. Native mobile layout and recording with an audio track were not exercised in this pass.
-
-## Local use
-
-Open `index.html`, or run `python3 -m http.server 8000` and visit http://localhost:8000. GitHub Pages deploys the single HTML file on pushes to `main`.
+Real Canvas tests cover both endpoints, eight transitions, finite particle positions, image selector thresholds, visible magnet influence, field undo/redo/settings round-trip, cloth deformation and pinned anchors, rubber/liquid motion, 3D software fallback and Full HD dimensions. Browser QA covers visible controls, image selection, preview, recording and scene export. Hardware WebGL rendering still needs visual testing on a GPU-enabled browser.
