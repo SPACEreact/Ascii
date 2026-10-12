@@ -2,6 +2,7 @@ const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
 const {chromium}=require('playwright-core');
+require('./print-effects.cjs');
 
 const base=path.resolve(__dirname,'..');
 const mime={'.js':'application/javascript','.html':'text/html','.css':'text/css'};
@@ -34,6 +35,25 @@ const server=http.createServer((req,res)=>{
         canvasSize:[document.querySelector('#out').width,document.querySelector('#out').height]
       }));
       console.log(label,'INITIAL',JSON.stringify(state));
+      await page.locator('[data-tab="print"]').click();
+      if(await page.locator('#panel-print').evaluate(el=>el.hidden))throw Error(label+' print tab did not open');
+      const original=await page.evaluate(()=>{render(0,480,true);return out.toDataURL()});
+      await page.locator('#printStyle').selectOption('atkinson');
+      const printed=await page.evaluate(()=>{render(0,480,true);return out.toDataURL()});
+      if(original===printed)throw Error(label+' print effect did not reach export canvas');
+      await page.locator('#printStyle').selectOption('halftone');
+      const halftone=await page.evaluate(()=>{render(0,480,true);return out.toDataURL()});
+      if(halftone===printed)throw Error(label+' halftone output did not change');
+      await page.locator('#printReset').click();
+      const reset=await page.evaluate(()=>{render(0,480,true);return out.toDataURL()});
+      if(reset!==original)throw Error(label+' returning to ASCII changed original artwork');
+      await page.locator('[data-tab="type"]').click();
+      await page.locator('#dither').selectOption('floyd',{force:true});
+      await page.locator('#dither').selectOption('none',{force:true});
+      await page.locator('[data-tab="adjust"]').click();
+      await page.locator('#printBlack').evaluate(el=>{el.value='50';el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))});
+      await page.evaluate(()=>restore({...settings(),printBlack:0}));
+      console.log(label,'PRINT_CHECK 32 effects, export canvas and neutral reset');
       await page.locator('[data-tab="split"]').click();
       await page.waitForTimeout(400);
       state=await page.evaluate(()=>({
@@ -102,3 +122,4 @@ const server=http.createServer((req,res)=>{
     console.log('PASS both phone and desktop tab opening + split controls');
   }finally{await browser.close();}
 })().catch(e=>{console.error('SMOKE FAILED',e);process.exitCode=1}).finally(()=>server.close());
+

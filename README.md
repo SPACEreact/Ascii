@@ -2,6 +2,12 @@
 
 Live: https://spacereact.github.io/Ascii/
 
+## Print Studio
+
+The **Print** tab adds 32 source-image styles: eight error-diffusion algorithms (Floyd–Steinberg, Atkinson, Jarvis–Judice–Ninke, Stucki, Burkes and three Sierra variants), Bayer, white noise, four-tone pocket camera, five dot/ink styles, hatching, waves, rings, spiral, sunburst, ridgelines, contours, outline, photocopy, streaks, threshold and posterize. Adjust mix, spacing, angle, tone count and source-colour or ink/paper treatment. Search filters the effect buttons. Character lab also offers ten additional dithering options for the ASCII glyph grid.
+
+Adjust now includes hue, black/white levels and midtones; grading applies to ASCII, print output and both ASCII keyframes. Print styles texture the current source rather than playing character choreography or A/B transitions. Return to ASCII to use those features. Print output passes through CRT and creative split masks, and reaches PNG and video export. Text/HTML remain character exports. Settings join autosave, projects and undo history. Print rasters are cached and bounded to one megapixel; noise is stable between frames. `node tests/print-effects.cjs` validates deterministic output, alpha, mix, quantization, hue and levels.
+
 A buildless, self-contained HTML studio for turning images and videos into ASCII artwork, animating characters, and choreographing transitions between two images. GitHub Pages serves `index.html` directly.
 
 ## Create
@@ -41,3 +47,4 @@ The **Adjust** and **CRT** tabs extend the existing app without introducing a bu
 CRT effects start **off**: opt into scanlines with adjustable spacing/intensity, an aperture-grille or shadow-dot phosphor mask, bloom, halation, softness, RGB bleed, simulated curved glass and vignette. Each has its own enable switch and intensity slider. **Soft CRT**, **Arcade**, **Pixel Glow**, and **Mono Terminal** provide starting points. CRT draws onto the same output canvas so PNG and supported video export use these effects too. Note that curved glass is a lightweight strip approximation rather than a full optical distortion shader. Both tabs support Undo/Redo, per-group reset and project/device settings.
 
 The darkroom is implemented as `studio-upgrade.js`, loaded after the main app; the existing renderer, transitions, source imports and performance-limited preview remain available. Heavy CRT effects can impact full-HD frame rates, so enable only those needed for the artwork.
+

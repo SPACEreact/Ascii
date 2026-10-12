@@ -218,6 +218,7 @@
   restore = function(s) { nativeRestore(s); invalidate(); updateCurveGraph(); };
 
   const nativeSamplePicture = samplePicture;
+  window.asciiPhotoProcess = processPixels;
   samplePicture = function(cols,rows) {
     const raw = nativeSamplePicture(cols,rows);
     return processPixels(raw,cols,rows,settings(),rawKey);
@@ -376,6 +377,7 @@
   const nativeRender = render;
   render = function(t,width,exporting) {
     nativeRender(t,width,exporting);
+    if (window.asciiPrintRender && !previewBefore) window.asciiPrintRender(t,exporting);
     drawCRT(settings());
   };
 
