@@ -116,6 +116,48 @@ const server=http.createServer((req,res)=>{
       await page.locator('#maskClear').click();
       if(await page.evaluate(()=>snapshot()._maskStrokes?.length))throw Error(label+' brush clear failed');
 
+      // Salvaged Ultimate features must use real controls and existing history.
+      await page.locator('[data-tab="type"]').click();
+      const priorRamp=await page.locator('#ramp').inputValue();
+      await page.locator('#charRamp').selectOption('blocks');
+      if(await page.locator('#ramp').inputValue()!==' ░▒▓█')throw Error(label+' ramp did not apply');
+      await page.evaluate(() => document.querySelector('#undo').click());
+      if(await page.locator('#ramp').inputValue()!==priorRamp)throw Error(label+' ramp Undo failed');
+      await page.locator('#smartSuggest').click();
+      if(!await page.locator('#status').textContent().then(s=>s.includes('Source-based suggestion')))throw Error(label+' suggestion did not run');
+      const suggestedCols=await page.locator('#cols').inputValue();
+      await page.locator('[data-tab="gallery"]').click();
+      if(await page.locator('#panel-gallery').evaluate(el=>el.hidden))throw Error(label+' saved panel failed');
+      await page.locator('#savePreview').click();
+      if(await page.locator('#galleryGrid img').count()!==1)throw Error(label+' preview did not save');
+      await page.evaluate(()=>restore({...settings(),cols:40}));
+      await page.locator('#galleryGrid button').click();
+      if(await page.locator('#cols').inputValue()!==suggestedCols)throw Error(label+' preview settings did not restore');
+      await page.locator('[data-tab="type"]').click();
+      await page.evaluate(()=>{
+        restore({...settings(),ramp:' ⠁⣿★',previewQuality:'fullhd'});
+        Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.testSharedLink=value}}});
+      });
+      await page.locator('#shareLink').click();
+      await page.waitForFunction(()=>window.testSharedLink);
+      const sharedLink=await page.evaluate(()=>window.testSharedLink);
+      const sharedPage=await browser.newPage({viewport});
+      sharedPage.on('pageerror',e=>errors.push('SHARED_PAGE_ERROR '+e.message));
+      await sharedPage.goto(sharedLink,{waitUntil:'load'});
+      if(await sharedPage.locator('#ramp').inputValue()!==' ⠁⣿★')throw Error(label+' Unicode settings share failed');
+      if(await sharedPage.locator('#previewQuality').inputValue()!=='auto')throw Error(label+' shared link enabled Full HD');
+      await sharedPage.close();
+      await page.evaluate(()=>{
+        localStorage.setItem('ascii-studio-gallery-v1','malformed json');
+        restore({...settings(),previewQuality:'auto'});
+      });
+      await page.locator('[data-tab="gallery"]').click();
+      if(await page.locator('#galleryGrid img').count())throw Error(label+' corrupt gallery was not handled');
+      await page.locator('#savePreview').click();
+      await page.locator('#clearGallery').click();
+      if(await page.locator('#galleryGrid img').count())throw Error(label+' gallery clear failed');
+      console.log(label,'ULTIMATE_CHECK ramps, Undo, source suggestion, previews, Unicode sharing, corruption recovery');
+
       if(errors.length)throw Error(label+' browser issues:\n'+errors.join('\n'));
       await page.close();
     }

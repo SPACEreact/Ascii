@@ -48,3 +48,11 @@ CRT effects start **off**: opt into scanlines with adjustable spacing/intensity,
 
 The darkroom is implemented as `studio-upgrade.js`, loaded after the main app; the existing renderer, transitions, source imports and performance-limited preview remain available. Heavy CRT effects can impact full-HD frame rates, so enable only those needed for the artwork.
 
+
+## Saved previews and settings sharing
+
+Characters now includes **Suggest settings**, **Share settings**, and five quick character ramps. Suggest samples the source using a luminance/contrast heuristic and participates in Undo. Sharing copies a versioned Unicode-safe settings link; it excludes media and brush strokes. Opening a link starts with Auto preview.
+
+The **Saved** tab stores up to 12 small PNG thumbnails and their scalar settings on this device. Restore applies those settings to the current media; it does not restore source images, brush strokes or timeline position. Use Save project for a complete artwork. Storage and clipboard failures are reported.
+
+These features adapt ideas from the supplied Ultimate Edition. Its original new script failed syntax checking; the unchanged renderer, Print, Adjust, CRT, Split and Mask files were retained from the current repository. Placeholder SVG export, banner and post-effect controls were excluded.
