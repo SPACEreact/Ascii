@@ -1,58 +1,29 @@
-# ASCII Studio · The Art Edition
+# ASCII Studio · Sea Glass Pro
 
 Live: https://spacereact.github.io/Ascii/
 
-## Print Studio
+A focused image/video ASCII editor. The interface has three tabs:
 
-The **Print** tab adds 32 source-image styles: eight error-diffusion algorithms (Floyd–Steinberg, Atkinson, Jarvis–Judice–Ninke, Stucki, Burkes and three Sierra variants), Bayer, white noise, four-tone pocket camera, five dot/ink styles, hatching, waves, rings, spiral, sunburst, ridgelines, contours, outline, photocopy, streaks, threshold and posterize. Adjust mix, spacing, angle, tone count and source-colour or ink/paper treatment. Search filters the effect buttons. Character lab also offers ten additional dithering options for the ASCII glyph grid.
+- **Effects:** 20 Sea Glass engines, adjustable dynamics, and 32 print/dithering effects.
+- **Settings:** characters, 16 ramps, glyph fonts/weight, density, cell aspect, rotation, scatter, brick rows, exposure, colour grading, levels and optical/CRT finishes.
+- **Export:** PNG, MP4 where browser codecs support it, live video recording, text and coloured HTML.
 
-Adjust now includes hue, black/white levels and midtones; grading applies to ASCII, print output and both ASCII keyframes. Print styles texture the current source rather than playing character choreography or A/B transitions. Return to ASCII to use those features. Print output passes through CRT and creative split masks, and reaches PNG and video export. Text/HTML remain character exports. Settings join autosave, projects and undo history. Print rasters are cached and bounded to one megapixel; noise is stable between frames. `node tests/print-effects.cjs` validates deterministic output, alpha, mix, quantization, hue and levels.
+Load an image or video at the top, choose an effect, adjust its settings and export. Effects run on the shared timeline; Pause freezes the animation and source video. Preview and image/video exports use the same character renderer. Text and HTML export the static source glyph grid.
 
-A buildless, self-contained HTML studio for turning images and videos into ASCII artwork, animating characters, and choreographing transitions between two images. GitHub Pages serves `index.html` directly.
+Sea Glass replaces the previous multi-workflow interface. Motion recipes, A/B transitions, split masks, saved previews, projects and suggestion/share tools are no longer exposed. Existing settings are migrated with choreography and masking disabled. Source media is kept when adjustments are reset. No server processes the media.
 
-## Create
+The app is buildless. `index.html` contains the base renderer; `sea-glass.js` adds the focused UI and engines. The darkroom and print scripts provide grading, CRT and printing. Legacy extension scripts remain internal for backwards-compatible state; their removed workflows stay disabled.
 
-1. Import an image or video, or explore the four sample artworks in Source.
-2. Choose a character preset, density and rendering mode in Characters. Character set, font, dithering and tone live in an expandable section.
-3. Choose a movement recipe in Motion or an A/B transition in Transition. Suggestions use foreground contrast and colour heuristics, rather than semantic object recognition.
-4. Refine colour and texture in Colour. Boreal, Ember, Silver and Paper are starting palettes; individual colours, gain, glow, trails and finish controls remain editable.
-5. Export PNG, MP4, text, coloured HTML or an editable project.
+## Effects
 
-Motion retains pulse, disc, heat rise, foliage sway, petals, waves, drift and scatter. A/B retains travel, morph, swirl, noise reveal, shatter, curtain, ribbon and colour dissolve. Images blend colours while characters rearrange. Subject-only or whole-picture motion remains available.
+Clean Studio, Ocean Wave, Matrix Rain, Vortex Swirl, Black Hole, Cyber Glitch, Ripple Pond, Liquid Drift, Kaleidoscope, Sobel Neon, Thermal Vision, Halftone Pulse, Error Diffusion, Pixel Sort Melt, VHS Tracking, Wind Shear, Seismic Quake, Cursor Magnet, Bio Heartbeat and Quantum Tunnel.
 
-Scene building, procedural 3D assets, maps, terrain and Matter physics have been removed from the interface, runtime and project output. Audio, brushes and magnets remain removed.
+Kaleidoscope and Tunnel resample the character grid. Pixel Sort sorts source-colour luminance runs per column without mutating the source. Error Diffusion uses the existing Floyd–Steinberg implementation. Other engines move or recolour characters. Pointer effects respond over the artboard. Intensity zero restores the neutral mapping, while typography controls remain independent.
 
-## Rendering and performance
+## Preview and export
 
-The renderer preserves character density and the existing glyph raster/colour pipeline. Eight bounded atlas pages replace separate canvases for thousands of coloured characters. Immutable character layers are reused for effects such as film grain; changing source, typography, dimensions or tone invalidates them. Animated glyphs, transitions and heat/hologram treatments regenerate the layer when required. Dead brush-field interpolation has been removed. Hidden tabs do not draw; still previews do not continuously redraw or advance the timeline.
+Auto preview stays capped at 960 px / 20 fps; full HD is opt-in in Settings. PNG can export up to 2560 px. Image MP4 export uses WebCodecs at 30 fps with native recording fallback; video sources use live recording. Some browsers support only WebM live capture. Exports have no audio. Web fonts fall back to local fonts when offline.
 
-A local real-Canvas benchmark at 960 px / 180 columns with a static sample and animated film grain measured approximately 24.1 ms/frame before and 2.3 ms/frame after this change. It is one workload, not a guarantee for all effects or devices. The same static frame compared pixel-identical before/after. Atlas storage is bounded to eight 832×672 pages (about 18 MB of raw pixels plus browser overhead).
+## Checks
 
-Full HD preview starts **off every page load**, even when previously saved. Enable FHD when needed: 1920×1080 at 16:9, or 1080×1920 at 9:16. Default preview is capped at 960 px and 20 fps. Character density, preview resolution and export resolution are independent.
-
-## Projects and export
-
-Schema 6 embeds image A/B at up to 1280 px and saves all current studio settings. Schemas 1–5 load; removed scene/map/material fields are ignored. Device autosave migrates previous settings. Video and camera sources require reattachment. Saved projects can restore their chosen preview quality within a session; startup always resets it to Auto.
-
-PNG supports transparency and widths up to 2560 px. Supporting HTTPS browsers render MP4 frames at 30 fps using WebCodecs baseline AVC and an embedded MP4 writer. Video/camera or unsupported AVC encoding uses live native recording; Record video may save WebM. Live capture requires sufficient playback speed and a visible tab. MP4 frame export is limited to 120 seconds / 220 MB; Stop cancels it. Exports have no audio.
-
-## Validation
-
-Real Canvas regression checks cover image rendering, all eight transitions, animated character motion, palette history, transparent output, Full HD dimensions, embedded projects and legacy-state removal. Static before/after frames are compared directly. The MP4 writer is checked with actual AVC packets, FFprobe timing/frame counts and a full FFmpeg decode. Live browser checks verify the published controls and output dimensions.
-
-## Pixel Darkroom: photo and CRT controls
-
-The **Adjust** and **CRT** tabs extend the existing app without introducing a build step or new dependencies. Adjust includes exposure, highlights, shadows, temperature, tint, saturation, vibrance, a three-point tonal curve, sharpening and grain. Grading is non-destructive and applies to both image keyframes before ASCII conversion. Hold **Before** to compare the untreated character render.
-
-CRT effects start **off**: opt into scanlines with adjustable spacing/intensity, an aperture-grille or shadow-dot phosphor mask, bloom, halation, softness, RGB bleed, simulated curved glass and vignette. Each has its own enable switch and intensity slider. **Soft CRT**, **Arcade**, **Pixel Glow**, and **Mono Terminal** provide starting points. CRT draws onto the same output canvas so PNG and supported video export use these effects too. Note that curved glass is a lightweight strip approximation rather than a full optical distortion shader. Both tabs support Undo/Redo, per-group reset and project/device settings.
-
-The darkroom is implemented as `studio-upgrade.js`, loaded after the main app; the existing renderer, transitions, source imports and performance-limited preview remain available. Heavy CRT effects can impact full-HD frame rates, so enable only those needed for the artwork.
-
-
-## Saved previews and settings sharing
-
-Characters now includes **Suggest settings**, **Share settings**, and five quick character ramps. Suggest samples the source using a luminance/contrast heuristic and participates in Undo. Sharing copies a versioned Unicode-safe settings link; it excludes media and brush strokes. Opening a link starts with Auto preview.
-
-The **Saved** tab stores up to 12 small PNG thumbnails and their scalar settings on this device. Restore applies those settings to the current media; it does not restore source images, brush strokes or timeline position. Use Save project for a complete artwork. Storage and clipboard failures are reported.
-
-These features adapt ideas from the supplied Ultimate Edition. Its original new script failed syntax checking; the unchanged renderer, Print, Adjust, CRT, Split and Mask files were retained from the current repository. Placeholder SVG export, banner and post-effect controls were excluded.
+`node tests/sea-effects.cjs` checks finite transforms across portrait/landscape, pointer force, neutral intensity and immutable pixel sorting. `node tests/print-effects.cjs` checks print/dither output. `node tests/mobile-smoke.cjs` with Playwright and Chrome checks the three-tab interface, engines, pause, controls, state migration, image upload and full-size PNG export at phone and desktop dimensions. GitHub Actions runs the browser checks and publishes all referenced scripts to Pages.

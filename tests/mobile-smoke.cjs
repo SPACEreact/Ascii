@@ -1,167 +1,45 @@
-const http=require('node:http');
-const fs=require('node:fs');
-const path=require('node:path');
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require('playwright-core');
-require('./print-effects.cjs');
-
+require('./print-effects.cjs');require('./sea-effects.cjs');
 const base=path.resolve(__dirname,'..');
-const mime={'.js':'application/javascript','.html':'text/html','.css':'text/css'};
-const server=http.createServer((req,res)=>{
-  const pathname=(new URL(req.url,'http://localhost')).pathname;
-  const p=path.join(base,pathname==='/'?'index.html':pathname.slice(1));
-  if(!p.startsWith(base+path.sep)||!fs.existsSync(p)){res.writeHead(404);res.end('not found');return}
-  res.writeHead(200,{'content-type':mime[path.extname(p)]||'text/plain','cache-control':'no-store'});
-  fs.createReadStream(p).pipe(res);
-});
+const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http://localhost').pathname,p=path.join(base,pathname==='/'?'index.html':pathname.slice(1));if(!p.startsWith(base+path.sep)||!fs.existsSync(p)){res.writeHead(404);res.end();return;}res.writeHead(200,{'content-type':p.endsWith('.js')?'application/javascript':'text/html','cache-control':'no-store'});fs.createReadStream(p).pipe(res);});
 (async()=>{
-  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  const port=server.address().port;
-  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'/usr/bin/google-chrome',args:['--no-sandbox','--disable-dev-shm-usage','--enable-webgl','--use-gl=angle','--use-angle=swiftshader']});
-  try{
-    for(const [label,viewport] of [['mobile',{width:390,height:844}],['desktop',{width:1366,height:768}]]){
-      const page=await browser.newPage({viewport,deviceScaleFactor:label==='mobile'?2:1,hasTouch:label==='mobile'});
-      const errors=[];
-      page.on('pageerror',e=>errors.push('PAGE_ERROR '+e.stack));
-      page.on('console',msg=>{if(msg.type()==='error')errors.push('CONSOLE_ERROR '+msg.text())});
-      page.on('response',r=>{if(r.status()>=400)errors.push('HTTP_ERROR '+r.status()+' '+r.url())});
-      await page.goto('http://127.0.0.1:'+port+'/',{waitUntil:'load'});
-      await page.waitForTimeout(1000);
-      let state=await page.evaluate(()=>({
-        tabs:[...document.querySelectorAll('.tabs [data-tab]')].map(x=>x.dataset.tab),
-        splitExists:!!document.querySelector('#panel-split'),
-        splitDisabled:document.querySelector('#panel-split')?.hidden,
-        ready:document.querySelector('#splitPosition')?.value,
-        scripts:[...document.scripts].map(x=>x.src||'(inline)'),
-        canvasSize:[document.querySelector('#out').width,document.querySelector('#out').height]
-      }));
-      console.log(label,'INITIAL',JSON.stringify(state));
-      await page.locator('[data-tab="print"]').click();
-      if(await page.locator('#panel-print').evaluate(el=>el.hidden))throw Error(label+' print tab did not open');
-      const original=await page.evaluate(()=>{render(0,480,true);return out.toDataURL()});
-      await page.locator('#printStyle').selectOption('atkinson');
-      const printed=await page.evaluate(()=>{render(0,480,true);return out.toDataURL()});
-      if(original===printed)throw Error(label+' print effect did not reach export canvas');
-      await page.locator('#printStyle').selectOption('halftone');
-      const halftone=await page.evaluate(()=>{render(0,480,true);return out.toDataURL()});
-      if(halftone===printed)throw Error(label+' halftone output did not change');
-      await page.locator('#printReset').click();
-      const reset=await page.evaluate(()=>{render(0,480,true);return out.toDataURL()});
-      if(reset!==original)throw Error(label+' returning to ASCII changed original artwork');
-      await page.locator('[data-tab="type"]').click();
-      await page.locator('#dither').selectOption('floyd',{force:true});
-      await page.locator('#dither').selectOption('none',{force:true});
-      await page.locator('[data-tab="adjust"]').click();
-      await page.locator('#printBlack').evaluate(el=>{el.value='50';el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))});
-      await page.evaluate(()=>restore({...settings(),printBlack:0}));
-      console.log(label,'PRINT_CHECK 32 effects, export canvas and neutral reset');
-      await page.locator('[data-tab="split"]').click();
-      await page.waitForTimeout(400);
-      state=await page.evaluate(()=>({
-        panelHidden:document.querySelector('#panel-split')?.hidden,
-        tabSelected:document.querySelector('[data-tab="split"]')?.classList.contains('selected'),
-        panelRect:(()=>{let r=document.querySelector('#panel-split')?.getBoundingClientRect();return r&&{x:r.x,y:r.y,width:r.width,height:r.height}})(),viewportHeight:window.innerHeight
-      }));
-      console.log(label,'AFTER_CLICK',JSON.stringify(state));
-      if(state.panelHidden||!state.tabSelected||!state.panelRect?.height)throw Error(label+' split tab did not open');
-      if(label==='mobile' && (state.panelRect.y<0 || state.panelRect.y>state.viewportHeight-140))throw Error('mobile split controls not visible in viewport');
-      await page.locator('#splitEnabled').check();
-      await page.locator('#splitStyle').selectOption('retro');
-      await page.locator('#splitPosition').evaluate(el=>{el.value='0.38';el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))});
-      await page.waitForTimeout(350);
-      console.log(label,'AFTER_ENABLE',JSON.stringify(await page.evaluate(()=>({
-        enabled:document.querySelector('#splitEnabled').checked,
-        style:document.querySelector('#splitStyle').value,
-        handleHidden:document.querySelector('.split-handle').hidden,
-        info:document.querySelector('#splitStatus').textContent
-      }))));
-
-      // New creative masks: verify all modes, live brush input, and project undo.
-      if(!await page.locator('#maskMode').count())throw Error(label+' creative mask UI missing');
-      await page.locator('#maskMode').selectOption('organic');
-      let maskState=await page.evaluate(()=>({
-        organicVisible:!document.querySelector('#maskOrganicGroup').hidden,
-        mode:document.querySelector('#maskMode').value,
-        canvas:document.querySelector('#out').width
-      }));
-      if(!maskState.organicVisible||maskState.mode!=='organic')throw Error(label+' organic mask controls missing');
-      await page.locator('#maskReroll').click();
-      await page.locator('#maskMode').selectOption('contrast');
-      maskState=await page.evaluate(()=>({
-        contrastVisible:!document.querySelector('#maskContrastGroup').hidden,
-        mode:document.querySelector('#maskMode').value
-      }));
-      if(!maskState.contrastVisible)throw Error(label+' contrast mask controls missing');
-      await page.locator('#maskMode').selectOption('hybrid');
-      await page.locator('#maskHybridBase').selectOption('organic');
-      const artwork=page.locator('#out');
-      await artwork.scrollIntoViewIfNeeded();
-      let bounds=await artwork.boundingBox();
-      if(!bounds)throw Error(label+' artwork missing');
-      await page.mouse.move(bounds.x+bounds.width*.3,bounds.y+bounds.height*.4);
-      await page.mouse.down();
-      await page.mouse.move(bounds.x+bounds.width*.5,bounds.y+bounds.height*.53,{steps:7});
-      await page.mouse.up();
-      maskState=await page.evaluate(()=>({
-        mode:document.querySelector('#maskMode').value,
-        strokes:snapshot()._maskStrokes?.length||0,
-        eraser:document.querySelector('#maskErase').classList.contains('mask-current'),
-        panelHidden:document.querySelector('#panel-split').hidden,
-        message:document.querySelector('#maskMessage').textContent
-      }));
-      console.log(label,'MASK_CHECK',JSON.stringify(maskState));
-      if(maskState.strokes!==1||maskState.panelHidden)throw Error(label+' paint stroke not saved');
-      await page.locator('#maskErase').click();
-      if(!await page.locator('#maskErase').evaluate(el=>el.classList.contains('mask-current')))
-        throw Error(label+' eraser not active');
-      await page.locator('#maskClear').click();
-      if(await page.evaluate(()=>snapshot()._maskStrokes?.length))throw Error(label+' brush clear failed');
-
-      // Salvaged Ultimate features must use real controls and existing history.
-      await page.locator('[data-tab="type"]').click();
-      const priorRamp=await page.locator('#ramp').inputValue();
-      await page.locator('#charRamp').selectOption('blocks');
-      if(await page.locator('#ramp').inputValue()!==' ░▒▓█')throw Error(label+' ramp did not apply');
-      await page.evaluate(() => document.querySelector('#undo').click());
-      if(await page.locator('#ramp').inputValue()!==priorRamp)throw Error(label+' ramp Undo failed');
-      await page.locator('#smartSuggest').click();
-      if(!await page.locator('#status').textContent().then(s=>s.includes('Source-based suggestion')))throw Error(label+' suggestion did not run');
-      const suggestedCols=await page.locator('#cols').inputValue();
-      await page.locator('[data-tab="gallery"]').click();
-      if(await page.locator('#panel-gallery').evaluate(el=>el.hidden))throw Error(label+' saved panel failed');
-      await page.locator('#savePreview').click();
-      if(await page.locator('#galleryGrid img').count()!==1)throw Error(label+' preview did not save');
-      await page.evaluate(()=>restore({...settings(),cols:40}));
-      await page.locator('#galleryGrid button').click();
-      if(await page.locator('#cols').inputValue()!==suggestedCols)throw Error(label+' preview settings did not restore');
-      await page.locator('[data-tab="type"]').click();
-      await page.evaluate(()=>{
-        restore({...settings(),ramp:' ⠁⣿★',previewQuality:'fullhd'});
-        Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.testSharedLink=value}}});
-      });
-      await page.locator('#shareLink').click();
-      await page.waitForFunction(()=>window.testSharedLink);
-      const sharedLink=await page.evaluate(()=>window.testSharedLink);
-      const sharedPage=await browser.newPage({viewport});
-      sharedPage.on('pageerror',e=>errors.push('SHARED_PAGE_ERROR '+e.message));
-      await sharedPage.goto(sharedLink,{waitUntil:'load'});
-      if(await sharedPage.locator('#ramp').inputValue()!==' ⠁⣿★')throw Error(label+' Unicode settings share failed');
-      if(await sharedPage.locator('#previewQuality').inputValue()!=='auto')throw Error(label+' shared link enabled Full HD');
-      await sharedPage.close();
-      await page.evaluate(()=>{
-        localStorage.setItem('ascii-studio-gallery-v1','malformed json');
-        restore({...settings(),previewQuality:'auto'});
-      });
-      await page.locator('[data-tab="gallery"]').click();
-      if(await page.locator('#galleryGrid img').count())throw Error(label+' corrupt gallery was not handled');
-      await page.locator('#savePreview').click();
-      await page.locator('#clearGallery').click();
-      if(await page.locator('#galleryGrid img').count())throw Error(label+' gallery clear failed');
-      console.log(label,'ULTIMATE_CHECK ramps, Undo, source suggestion, previews, Unicode sharing, corruption recovery');
-
-      if(errors.length)throw Error(label+' browser issues:\n'+errors.join('\n'));
-      await page.close();
-    }
-    console.log('PASS both phone and desktop tab opening + split controls');
-  }finally{await browser.close();}
-})().catch(e=>{console.error('SMOKE FAILED',e);process.exitCode=1}).finally(()=>server.close());
-
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'/usr/bin/google-chrome',args:['--no-sandbox','--disable-dev-shm-usage']});
+ try{for(const [label,viewport] of [['mobile',{width:390,height:844}],['desktop',{width:1366,height:768}]]){
+ const page=await browser.newPage({viewport,acceptDownloads:true});const errors=[];page.on('pageerror',e=>errors.push(e.stack));page.on('response',r=>{if(r.status()>=400&&r.url().includes('127.0.0.1'))errors.push(r.status()+' '+r.url())});
+ // Font network availability must not affect tests or core functionality.
+ await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.route('https://fonts.gstatic.com/**',route=>route.abort());
+ await page.goto('http://127.0.0.1:'+server.address().port+'/',{waitUntil:'load'});
+ assert.deepEqual(await page.locator('.tabs [data-tab]').evaluateAll(bs=>bs.map(b=>b.dataset.tab)),['sea','settings','export']);
+ assert.equal(await page.locator('[data-sea]').count(),20);
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' horizontal overflow');
+ await page.evaluate(()=>{restore({...snapshot(),cols:80,seaEffect:'none',seaIntensity:.65,glow:0,shader:'none',trail:0,crtMaster:false});pause();render(1,480,true);window.referenceImage=out.toDataURL();window.referenceCells=JSON.stringify(lastCells);});
+ for(const id of await page.evaluate(()=>ASCIISeaGlass.effects.map(f=>f[0]))){
+  const result=await page.evaluate(id=>{restore({...snapshot(),seaEffect:id});render(id==='pulse'?.35:1,480,true);const changed=out.toDataURL()!==window.referenceImage;restore({...snapshot(),seaIntensity:0});render(1,480,true);const cellsSame=JSON.stringify(lastCells)===window.referenceCells;restore({...snapshot(),seaIntensity:.65});return{changed,cellsSame};},id);
+  assert(result.cellsSame,id+' zero intensity altered source glyphs');if(!['none','magnet'].includes(id))assert(result.changed,id+' did not reach export canvas');
+ }
+ await page.locator('[data-sea="ocean"]').click();
+ await page.evaluate(()=>{pause();window.pausedFrame=frame;});await page.waitForTimeout(200);assert.equal(await page.evaluate(()=>frame),await page.evaluate(()=>window.pausedFrame));
+ await page.locator('#play').click();await page.waitForTimeout(300);assert(await page.evaluate(()=>frame>window.pausedFrame));await page.locator('#play').click();
+ // Pointer engine must respond on the artboard without reactivating masking.
+ await page.evaluate(()=>{restore({...snapshot(),seaEffect:'magnet'});render(1,480,true);window.magnetBefore=out.toDataURL();});
+ await page.locator('#out').scrollIntoViewIfNeeded();const bounds=await page.locator('#out').boundingBox();await page.mouse.move(bounds.x+bounds.width*.48,bounds.y+bounds.height*.5);
+ assert(await page.evaluate(()=>{render(1,480,true);return out.toDataURL()!==window.magnetBefore;}));
+ await page.locator('[data-tab="settings"]').click();assert(await page.locator('#panel-settings').isVisible());assert(await page.locator('#seaRamp').isVisible());
+ await page.locator('#seaRamp').selectOption('4');assert((await page.locator('#ramp').inputValue()).includes('अ'));
+ await page.locator('#font').selectOption('system-ui, sans-serif',{force:true});
+ await page.evaluate(()=>{restore({...snapshot(),sequence:true,splitEnabled:true,motion:'disc'});});
+ assert.deepEqual(await page.evaluate(()=>[settings().sequence,settings().splitEnabled,settings().motion]),[false,false,'none']);
+ await page.locator('#reset').click();assert.equal(await page.locator('#seaEffect').inputValue(),'none');assert.equal(await page.locator('[data-sea="none"]').getAttribute('aria-pressed'),'true');
+ // Real image upload and full-size PNG export.
+ const bytes=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=64;c.height=64;const q=c.getContext('2d');q.fillStyle='#061320';q.fillRect(0,0,64,64);q.fillStyle='#5eead4';q.beginPath();q.ellipse(32,32,23,15,.4,0,Math.PI*2);q.fill();return c.toDataURL().split(',')[1];});
+ await page.locator('#mediaFile').setInputFiles({name:'test-art.png',mimeType:'image/png',buffer:Buffer.from(bytes,'base64')});await page.waitForFunction(()=>type==='image');
+ assert.equal(await page.evaluate(()=>settings().motion),'none');
+ await page.locator('[data-tab="export"]').click();await page.locator('#exportWidth').selectOption('1280');
+ const downloadPromise=page.waitForEvent('download');await page.locator('#panel-export button.primary').first().click();const download=await downloadPromise;const png=fs.readFileSync(await download.path());assert.equal(png.readUInt32BE(16),1280);assert.equal(png.readUInt32BE(20),1280);
+ await page.locator('[data-tab="sea"]').click();await page.locator('#panel-sea>details').last().locator('summary').click();await page.locator('#printStyle').selectOption('atkinson');
+ assert(await page.evaluate(()=>{render(0,480,true);return out.toDataURL().length>1000;}));
+ assert.equal(errors.length,0,errors.join('\n'));console.log('PASS',label,'3-tab redesign, 20 export engines, controls, Pause, pointer, upload, PNG, Print');await page.close();
+ }}finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>server.close());
