@@ -11,4 +11,5 @@ assert.deepEqual(sortedCells(cells,1,3,.1).map(c=>c.c),['b','c','a']);assert.equ
 const p={x:.5,y:.5,active:false};assert.deepEqual(warp('none',.2,.3,1,settings,p,1),{x:.2,y:.3,alpha:1,size:1});
 assert.deepEqual(warp('ocean',.2,.3,1,{...settings,seaIntensity:0},p,1),{x:.2,y:.3,alpha:1,size:1});
 assert.notDeepEqual(warp('magnet',.48,.53,1,settings,{...p,active:true},1),warp('magnet',.48,.53,1,settings,p,1));
+assert.notDeepEqual(warp('pulse',.2,.3,.35,settings,p,1),warp('none',.2,.3,.35,settings,p,1));
 console.log('PASS Sea Glass: portrait/landscape bounds, pointer force, neutral intensity and non-mutating pixel sort');

@@ -16,7 +16,7 @@ const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http:
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' horizontal overflow');
  await page.evaluate(()=>{restore({...snapshot(),cols:80,seaEffect:'none',seaIntensity:.65,glow:0,shader:'none',trail:0,crtMaster:false});pause();render(1,480,true);window.referenceImage=out.toDataURL();window.referenceCells=JSON.stringify(lastCells);});
  for(const id of await page.evaluate(()=>ASCIISeaGlass.effects.map(f=>f[0]))){
-  const result=await page.evaluate(id=>{restore({...snapshot(),seaEffect:id});render(1,480,true);const changed=out.toDataURL()!==window.referenceImage;restore({...snapshot(),seaIntensity:0});render(1,480,true);const cellsSame=JSON.stringify(lastCells)===window.referenceCells;restore({...snapshot(),seaIntensity:.65});return{changed,cellsSame};},id);
+  const result=await page.evaluate(id=>{restore({...snapshot(),seaEffect:id});render(id==='pulse'?.35:1,480,true);const changed=out.toDataURL()!==window.referenceImage;restore({...snapshot(),seaIntensity:0});render(1,480,true);const cellsSame=JSON.stringify(lastCells)===window.referenceCells;restore({...snapshot(),seaIntensity:.65});return{changed,cellsSame};},id);
   assert(result.cellsSame,id+' zero intensity altered source glyphs');if(!['none','magnet'].includes(id))assert(result.changed,id+' did not reach export canvas');
  }
  await page.locator('[data-sea="ocean"]').click();
